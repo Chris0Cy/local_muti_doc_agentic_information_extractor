@@ -1,0 +1,40 @@
+# Local Agentic Multi-Document Information Extractor - default config
+#
+# IMPORTANT: model_id values below are placeholders. Edit them to match the
+# exact model identifiers you have loaded in LM Studio (see LM Studio's
+# server/developer tab, or `curl http://localhost:1234/v1/models`).
+
+lmstudio:
+  base_url: "http://localhost:1234/v1"
+  request_timeout_s: 120
+
+tiers:
+  - name: tiny
+    model_id: "qwen2.5-0.5b-instruct"
+    context_window_tokens: 8192
+    reserved_output_tokens: 512
+  - name: small
+    model_id: "qwen2.5-1.5b-instruct"
+    context_window_tokens: 16384
+    reserved_output_tokens: 512
+  - name: medium
+    model_id: "qwen2.5-3b-instruct"
+    context_window_tokens: 32768
+    reserved_output_tokens: 768
+  - name: large
+    model_id: "qwen2.5-7b-instruct"
+    context_window_tokens: 32768
+    reserved_output_tokens: 1024
+
+judge:
+  name: judge
+  model_id: "qwen2.5-7b-instruct"
+  context_window_tokens: 32768
+  reserved_output_tokens: 2048
+
+concurrency_limit: 4
+chunk_overlap_tokens: 200
+safety_margin: 0.85
+
+output_format: markdown # text | markdown | json
+save_path: "./reports/{timestamp}.md" # used only when `ask` is run with --save
