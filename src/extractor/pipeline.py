@@ -9,9 +9,10 @@ from pathlib import Path
 from extractor import chunking, discovery, sizing
 from extractor import extraction as extraction_mod
 from extractor import judge as judge_mod
+from extractor import relevance as relevance_mod
 from extractor.extraction.base import ExtractionError
 from extractor.lmstudio_client import LMStudioClientProtocol
-from extractor.models import AppConfig, Chunk, ExtractedDocument, RunReport
+from extractor.models import AppConfig, Chunk, ExtractedDocument, RelevanceFilterResult, RunReport
 from extractor.worker import ask_worker
 
 
@@ -65,6 +66,13 @@ async def run(
 
     await client.health_check()
 
+    if config.relevance_filter is not None:
+        extracted, relevance_result = await relevance_mod.filter_by_relevance(
+            client, question, extracted, config.relevance_filter, config.safety_margin
+        )
+    else:
+        relevance_result = RelevanceFilterResult()
+
     work_items = _build_work_items(extracted, config)
 
     semaphore = asyncio.Semaphore(config.concurrency_limit)
@@ -84,4 +92,5 @@ async def run(
         worker_results=worker_results,
         judge_result=judge_result,
         duration_s=time.monotonic() - t0,
+        relevance_filter=relevance_result,
     )

@@ -56,6 +56,19 @@ def render_console(report: RunReport, console: Console) -> None:
             f"\n[dim]Scanned {report.documents_scanned} document(s) in {report.duration_s:.1f}s, no failures.[/dim]"
         )
 
+    if report.relevance_filter.enabled:
+        dropped = report.relevance_filter.dropped
+        total = len(report.relevance_filter.scores)
+        kept = total - len(dropped)
+        console.print(f"\n[dim]Relevance pre-filter: kept {kept}/{total} document(s)[/dim]")
+        if dropped:
+            table = Table(title="Documents excluded by relevance pre-filter")
+            table.add_column("File")
+            table.add_column("Score", justify="right")
+            for s in dropped:
+                table.add_row(escape(str(s.path)), f"{s.score:.3f}")
+            console.print(table)
+
 
 def render_markdown(report: RunReport) -> str:
     lines = [f"# Question\n\n{report.question}\n", "# Answer\n"]
@@ -73,6 +86,16 @@ def render_markdown(report: RunReport) -> str:
             lines.append(
                 f"- Worker error on `{r.doc_path}` (chunk {r.chunk_index + 1}/{r.total_chunks}): {r.error}"
             )
+
+    if report.relevance_filter.enabled:
+        dropped = report.relevance_filter.dropped
+        total = len(report.relevance_filter.scores)
+        kept = total - len(dropped)
+        lines.append(f"\n# Relevance filter\n\nKept {kept}/{total} document(s).")
+        if dropped:
+            lines.append("\nExcluded:")
+            for s in dropped:
+                lines.append(f"- `{s.path}` (score: {s.score:.3f})")
 
     lines.append(
         f"\n---\n_Scanned {report.documents_scanned} document(s) in {report.duration_s:.1f}s._"

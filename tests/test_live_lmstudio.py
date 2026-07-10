@@ -59,3 +59,13 @@ async def test_ask_worker_against_real_model(client):
     result = await ask_worker(client, "How did revenue change?", chunk)
     assert result.error is None
     assert result.found_relevant_info is True
+
+
+@pytest.mark.asyncio
+async def test_embeddings_round_trip(client):
+    # Uses the embedding model confirmed loaded in this project's LM Studio
+    # instance (`list-models`); not part of config/default.yaml's chat tiers.
+    vectors = await client.embeddings("text-embedding-nomic-embed-text-v1.5", ["hello", "world"])
+    assert len(vectors) == 2
+    assert len(vectors[0]) > 0
+    assert vectors[0] != vectors[1]

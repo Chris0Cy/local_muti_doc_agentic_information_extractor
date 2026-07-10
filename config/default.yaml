@@ -38,3 +38,22 @@ safety_margin: 0.85
 
 output_format: markdown # text | markdown | json
 save_path: "./reports/{timestamp}.md" # used only when `ask` is run with --save
+
+# Opt-in embedding-based relevance pre-filter. Off by default: every document
+# gets a full worker LLM call regardless of relevance, which is exhaustive
+# but doesn't scale to hundreds/thousands of documents. Uncomment and tune
+# this block to only send the top-relevant documents to the (expensive)
+# worker/judge stage for large corpora -- at the cost of no longer being
+# guaranteed exhaustive (a document scoring below the filter never reaches
+# an LLM at all). Dropped documents are always reported, never silently hidden.
+#
+# relevance_filter:
+#   embedding_model:
+#     name: embed
+#     model_id: "text-embedding-nomic-embed-text-v1.5"
+#     context_window_tokens: 8192
+#     reserved_output_tokens: 0
+#   top_k: 10
+#   similarity_floor: 0.35
+#   overlap_tokens: 100
+#   cache_path: "./.cache/embeddings.json"

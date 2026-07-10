@@ -96,3 +96,46 @@ async def test_chat_completion_connection_refused_raises_unavailable():
         with pytest.raises(LMStudioUnavailable):
             await client.chat_completion("m", [{"role": "user", "content": "hi"}])
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_embeddings_sends_expected_payload_and_parses_vectors():
+    captured: dict = {}
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        import json as jsonlib
+
+        captured["payload"] = jsonlib.loads(request.content)
+        return httpx.Response(
+            200, json={"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]}
+        )
+
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.post("/embeddings").mock(side_effect=_handler)
+        client = LMStudioClient(BASE_URL)
+        result = await client.embeddings("nomic-embed-text-v1.5", ["doc one", "doc two"])
+        await client.aclose()
+
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+    assert captured["payload"]["model"] == "nomic-embed-text-v1.5"
+    assert captured["payload"]["input"] == ["doc one", "doc two"]
+
+
+@pytest.mark.asyncio
+async def test_embeddings_model_not_loaded_raises_request_error():
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.post("/embeddings").mock(return_value=httpx.Response(404, text="model not found"))
+        client = LMStudioClient(BASE_URL)
+        with pytest.raises(LMStudioRequestError):
+            await client.embeddings("missing-model", ["text"])
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_embeddings_connection_refused_raises_unavailable():
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.post("/embeddings").mock(side_effect=httpx.ConnectError("refused"))
+        client = LMStudioClient(BASE_URL)
+        with pytest.raises(LMStudioUnavailable):
+            await client.embeddings("m", ["text"])
+        await client.aclose()

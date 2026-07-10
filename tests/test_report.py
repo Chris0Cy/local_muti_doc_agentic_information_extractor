@@ -5,7 +5,13 @@ from pathlib import Path
 
 from rich.console import Console
 
-from extractor.models import JudgeResult, RunReport, WorkerResult
+from extractor.models import (
+    DocumentRelevanceScore,
+    JudgeResult,
+    RelevanceFilterResult,
+    RunReport,
+    WorkerResult,
+)
 from extractor.report import render_console, render_json, render_markdown
 
 # Rich's Console.print()/Table.add_row() parse "[...]" as style markup by
@@ -79,3 +85,48 @@ def test_render_json_round_trips_via_pydantic():
     json_str = render_json(report)
     assert '"question"' in json_str
     assert "It happened." in json_str
+
+
+def test_render_console_omits_relevance_section_when_filter_disabled():
+    report = make_report()
+    console = Console(file=io.StringIO())
+    render_console(report, console)
+    assert console.file.getvalue().count("Relevance pre-filter") == 0
+
+
+def test_render_console_shows_dropped_documents_when_filter_enabled():
+    report = make_report()
+    report.relevance_filter = RelevanceFilterResult(
+        enabled=True,
+        scores=[
+            DocumentRelevanceScore(path=Path("kept.txt"), score=0.9, kept=True),
+            DocumentRelevanceScore(path=Path(BRACKET_BOMB + ".txt"), score=0.1, kept=False),
+        ],
+    )
+    console = Console(file=io.StringIO())
+    render_console(report, console)  # must not crash on bracket-containing dropped path
+    output = console.file.getvalue()
+    assert "kept 1/2" in output
+    assert "kept.txt" not in output  # only dropped documents get listed in the table
+
+
+def test_render_markdown_lists_dropped_documents_with_scores():
+    report = make_report()
+    report.relevance_filter = RelevanceFilterResult(
+        enabled=True,
+        scores=[
+            DocumentRelevanceScore(path=Path("kept.txt"), score=0.9, kept=True),
+            DocumentRelevanceScore(path=Path("dropped.txt"), score=0.12, kept=False),
+        ],
+    )
+    markdown = render_markdown(report)
+    assert "Kept 1/2 document(s)" in markdown
+    assert "dropped.txt" in markdown
+    assert "0.120" in markdown
+    assert "kept.txt" not in markdown.split("Excluded:")[1]
+
+
+def test_render_markdown_omits_relevance_section_when_disabled():
+    report = make_report()
+    markdown = render_markdown(report)
+    assert "Relevance filter" not in markdown
