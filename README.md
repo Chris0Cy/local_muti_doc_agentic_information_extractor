@@ -49,6 +49,42 @@ python -m extractor ask-one --file ./docs/report.pdf --question "What was Q3 rev
 python -m extractor ask "How did revenue change in Q3?" --folder ./docs
 ```
 
+## Demo
+
+[`demo/`](demo/) contains a ready-to-run demo for showing this off to someone
+non-technical (e.g. a manager): a fictional company's Q3 business review spread
+across 6 documents in 6 different formats (PDF, Word, Excel, email, Markdown,
+plain text), with facts deliberately scattered and corroborated across formats,
+plus one irrelevant document to prove the tool doesn't force in noise.
+
+Run the whole thing with one command:
+
+```
+python demo/run_demo.py          # paced: press Enter between each step
+python demo/run_demo.py --auto   # runs straight through, no pauses
+```
+
+It confirms LM Studio is reachable, runs `inspect`, then asks 5 questions —
+each demonstrating a different capability (cross-format corroboration,
+pulling numbers from a PDF and a spreadsheet, reading an email, finding a
+detail buried mid-document) — finishing with a "trap" question that has no
+answer anywhere in the documents, to show the tool reports "not found" rather
+than fabricating one.
+
+Other files in `demo/`:
+- [`demo/DEMO_SCRIPT.md`](demo/DEMO_SCRIPT.md) — the same walkthrough with talking
+  points for each step, worth reading before presenting live.
+- [`demo/demo_config.yaml`](demo/demo_config.yaml) — a config with a higher
+  quality floor (3b/7b tiers only) than `config/default.yaml`; testing showed
+  the smallest tiers are noticeably less reliable at judging relevance on
+  open-ended questions, so the demo uses bigger models even though the demo
+  documents are small enough to fit the tiniest tier.
+- [`demo/generate_demo_files.py`](demo/generate_demo_files.py) — regenerates
+  the documents in `demo/docs/` from scratch if you want to tweak the story.
+
+Requires LM Studio running with `qwen2.5-3b-instruct` and `qwen2.5-7b-instruct`
+loaded (see [Setup](#setup) above).
+
 ## Development
 
 ```
