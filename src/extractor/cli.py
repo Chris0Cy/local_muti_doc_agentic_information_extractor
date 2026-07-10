@@ -7,6 +7,8 @@ import datetime as dt
 from pathlib import Path
 
 import typer
+import yaml
+from pydantic import ValidationError
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -17,12 +19,25 @@ from extractor.discovery import scan_folder
 from extractor.extraction import extract_text
 from extractor.extraction.base import ExtractionError
 from extractor.lmstudio_client import LMStudioClient, LMStudioUnavailable
-from extractor.models import Chunk
+from extractor.models import AppConfig, Chunk
 from extractor.sizing import assign_tier, estimate_tokens
 from extractor.worker import ask_worker
 
 app = typer.Typer(help="Local agentic multi-document information extractor.")
 console = Console()
+
+
+def _load_config_or_exit(config_path: Path | None) -> AppConfig:
+    """Wraps config.load_config with a clean CLI error instead of a raw
+    traceback for the ways a config file can be wrong: missing, malformed
+    YAML, or failing AppConfig's validation rules."""
+    try:
+        return load_config(config_path)
+    except (OSError, yaml.YAMLError, ValidationError) as e:
+        console.print(
+            f"[red]Failed to load config ({config_path or 'default'}): {escape(str(e))}[/red]"
+        )
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -40,7 +55,7 @@ def inspect(
 ) -> None:
     """Scan a folder and show each document's extracted size and assigned tier,
     with no LLM calls (useful for sanity-checking sizing/tiers before running `ask`)."""
-    config = load_config(config_path)
+    config = _load_config_or_exit(config_path)
     tiers = config.tiers_ascending
     paths = scan_folder(folder)
 
@@ -78,7 +93,7 @@ def list_models(
     config_path: Path = typer.Option(None, "--config", help="Path to a config YAML file."),
 ) -> None:
     """List the models currently loaded in LM Studio."""
-    config = load_config(config_path)
+    config = _load_config_or_exit(config_path)
 
     async def _run() -> list[str]:
         client = LMStudioClient(config.lmstudio.base_url, config.lmstudio.request_timeout_s)
@@ -108,7 +123,7 @@ def ask_one(
     """Manual smoke test: ask a single question against a single document,
     using the tier its size assigns it to (oversized docs use the largest tier
     and only the first chunk is sent, for a quick check against a real LM Studio)."""
-    config = load_config(config_path)
+    config = _load_config_or_exit(config_path)
     tiers = config.tiers_ascending
 
     try:
@@ -159,7 +174,7 @@ def ask(
 ) -> None:
     """Ask a question across every document in a folder and print one synthesized,
     cited answer, fanning the question out to per-document workers in parallel."""
-    config = load_config(config_path)
+    config = _load_config_or_exit(config_path)
 
     async def _run():
         client = LMStudioClient(config.lmstudio.base_url, config.lmstudio.request_timeout_s)

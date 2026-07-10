@@ -10,3 +10,4 @@ reports/*
 .venv/
 build/
 dist/
+.cache/

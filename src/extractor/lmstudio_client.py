@@ -35,6 +35,8 @@ class LMStudioClientProtocol(Protocol):
         max_tokens: int | None = None,
     ) -> str: ...
 
+    async def embeddings(self, model: str, inputs: list[str]) -> list[list[float]]: ...
+
 
 class LMStudioClient:
     """Thin wrapper around LM Studio's `/v1` OpenAI-compatible endpoints."""
@@ -107,4 +109,32 @@ class LMStudioClient:
         try:
             return data["choices"][0]["message"]["content"]
         except (KeyError, IndexError) as e:
+            raise LMStudioRequestError(model, f"Unexpected response shape: {data}") from e
+
+    @retry(
+        retry=retry_if_exception_type(httpx.TransportError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, max=4),
+        reraise=True,
+    )
+    async def _post_embeddings(self, payload: dict) -> httpx.Response:
+        return await self._client.post("/embeddings", json=payload)
+
+    async def embeddings(self, model: str, inputs: list[str]) -> list[list[float]]:
+        payload = {"model": model, "input": inputs}
+
+        try:
+            response = await self._post_embeddings(payload)
+        except httpx.TransportError as e:
+            raise LMStudioUnavailable(
+                f"Could not reach LM Studio at {self._client.base_url}"
+            ) from e
+
+        if response.status_code >= 400:
+            raise LMStudioRequestError(model, f"HTTP {response.status_code}: {response.text[:500]}")
+
+        data = response.json()
+        try:
+            return [item["embedding"] for item in data["data"]]
+        except (KeyError, TypeError) as e:
             raise LMStudioRequestError(model, f"Unexpected response shape: {data}") from e

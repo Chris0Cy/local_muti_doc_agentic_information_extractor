@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from extractor.models import AppConfig, TierConfig
+from extractor.models import AppConfig, RelevanceFilterConfig, TierConfig
 
 
 def make_tier(**overrides) -> dict:
@@ -35,3 +35,32 @@ def test_app_config_rejects_empty_tiers_list():
 def test_app_config_accepts_at_least_one_tier():
     config = AppConfig(tiers=[TierConfig(**make_tier())], judge=TierConfig(**make_tier()))
     assert len(config.tiers) == 1
+
+
+def test_app_config_relevance_filter_defaults_to_none():
+    config = AppConfig(tiers=[TierConfig(**make_tier())], judge=TierConfig(**make_tier()))
+    assert config.relevance_filter is None
+
+
+def test_relevance_filter_config_rejects_both_thresholds_none():
+    with pytest.raises(ValidationError):
+        RelevanceFilterConfig(
+            embedding_model=TierConfig(**make_tier()), top_k=None, similarity_floor=None
+        )
+
+
+def test_relevance_filter_config_rejects_top_k_below_one():
+    with pytest.raises(ValidationError):
+        RelevanceFilterConfig(embedding_model=TierConfig(**make_tier()), top_k=0)
+
+
+def test_relevance_filter_config_accepts_top_k_only():
+    config = RelevanceFilterConfig(embedding_model=TierConfig(**make_tier()), similarity_floor=None)
+    assert config.top_k == 10
+    assert config.similarity_floor is None
+
+
+def test_relevance_filter_config_accepts_floor_only():
+    config = RelevanceFilterConfig(embedding_model=TierConfig(**make_tier()), top_k=None)
+    assert config.top_k is None
+    assert config.similarity_floor == 0.35
