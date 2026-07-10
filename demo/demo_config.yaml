@@ -1,0 +1,37 @@
+# Demo config: same LM Studio instance/models as config/default.yaml, but with
+# a higher quality floor.
+#
+# Why: worker relevance-judgment quality scales with model size. The 0.5b and
+# 1.5b tiers are fast but noticeably less reliable at judging relevance on
+# open-ended business questions (false positives/negatives observed in
+# testing) — fine for short, narrowly-scoped lookups, but not the impression
+# you want in front of a manager. Dropping them from `tiers` means even short
+# documents route to at least the 3b model. The tiered-by-size architecture
+# is unchanged; this just raises the minimum tier used.
+
+lmstudio:
+  base_url: "http://localhost:1234/v1"
+  request_timeout_s: 120
+
+tiers:
+  - name: medium
+    model_id: "qwen2.5-3b-instruct"
+    context_window_tokens: 32768
+    reserved_output_tokens: 768
+  - name: large
+    model_id: "qwen2.5-7b-instruct"
+    context_window_tokens: 32768
+    reserved_output_tokens: 1024
+
+judge:
+  name: judge
+  model_id: "qwen2.5-7b-instruct"
+  context_window_tokens: 32768
+  reserved_output_tokens: 2048
+
+concurrency_limit: 4
+chunk_overlap_tokens: 200
+safety_margin: 0.85
+
+output_format: markdown
+save_path: "./reports/{timestamp}.md"

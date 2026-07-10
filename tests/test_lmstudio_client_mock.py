@@ -43,6 +43,16 @@ async def test_list_models_returns_ids():
 
 
 @pytest.mark.asyncio
+async def test_list_models_server_error_raises_unavailable():
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/models").mock(return_value=httpx.Response(500, text="internal error"))
+        client = LMStudioClient(BASE_URL)
+        with pytest.raises(LMStudioUnavailable):
+            await client.list_models()
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_chat_completion_sends_expected_payload_and_parses_content():
     captured: dict = {}
 

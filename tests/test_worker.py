@@ -89,6 +89,16 @@ async def test_ask_worker_downgrades_found_true_with_missing_excerpt():
 
 
 @pytest.mark.asyncio
+async def test_ask_worker_recognizes_negative_prose_fallback():
+    # No valid JSON recoverable, but the prose is clearly a refusal/negative --
+    # must not be surfaced to the judge as a "relevant" finding.
+    client = FakeClient(response="I don't see any relevant information in this document.")
+    result = await ask_worker(client, "q", make_chunk())
+    assert result.found_relevant_info is False
+    assert result.answer_excerpt is None
+
+
+@pytest.mark.asyncio
 async def test_ask_worker_captures_request_error_without_raising():
     client = FakeClient(raise_error=LMStudioRequestError("m-tiny", "model not loaded"))
     result = await ask_worker(client, "q", make_chunk())

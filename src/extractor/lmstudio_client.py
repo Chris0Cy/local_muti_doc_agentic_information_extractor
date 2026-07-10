@@ -64,6 +64,8 @@ class LMStudioClient:
             raise LMStudioUnavailable(
                 f"Could not reach LM Studio at {self._client.base_url}"
             ) from e
+        except httpx.HTTPStatusError as e:
+            raise LMStudioUnavailable(f"LM Studio returned an error: {e}") from e
         data = response.json()
         return [item["id"] for item in data.get("data", [])]
 

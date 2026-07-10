@@ -14,8 +14,10 @@ Rules:
 found_relevant_info=false and answer_excerpt=null.
 - If it DOES contain relevant information, you MUST set found_relevant_info=true AND \
 you MUST fill answer_excerpt with the actual relevant sentence(s) copied from the document. \
-Never set found_relevant_info to true while leaving answer_excerpt empty or null. Never invent \
-an answer that isn't in the document text.
+Capture the COMPLETE relevant context, not just the first matching sentence -- include any \
+exceptions, caveats, or counterpoints elsewhere in the document that would change or qualify \
+the answer. Never set found_relevant_info to true while leaving answer_excerpt empty or null. \
+Never invent an answer that isn't in the document text.
 - Respond with ONLY a single JSON object, no prose before or after, matching exactly this shape:
 {"found_relevant_info": true or false, "answer_excerpt": string or null, "confidence": "high" or "medium" or "low"}
 """

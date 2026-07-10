@@ -41,6 +41,14 @@ def _build_work_items(extracted: list[ExtractedDocument], config: AppConfig) -> 
     return work_items
 
 
+async def _extract_one(path: Path) -> tuple[ExtractedDocument | None, tuple[Path, str] | None]:
+    try:
+        doc = await asyncio.to_thread(extraction_mod.extract_text, path)
+        return doc, None
+    except ExtractionError as e:
+        return None, (path, str(e))
+
+
 async def run(
     question: str, folder: Path, config: AppConfig, client: LMStudioClientProtocol
 ) -> RunReport:
@@ -48,13 +56,12 @@ async def run(
 
     paths = discovery.scan_folder(folder)
 
-    extracted: list[ExtractedDocument] = []
-    failed: list[tuple[Path, str]] = []
-    for path in paths:
-        try:
-            extracted.append(extraction_mod.extract_text(path))
-        except ExtractionError as e:
-            failed.append((path, str(e)))
+    # Extraction is CPU/IO-bound (PDF parsing, OCR-adjacent work, etc.) and
+    # each file is independent, so run them concurrently via a thread pool
+    # rather than serially blocking the event loop one file at a time.
+    extraction_results = await asyncio.gather(*(_extract_one(p) for p in paths))
+    extracted = [doc for doc, _ in extraction_results if doc is not None]
+    failed = [failure for _, failure in extraction_results if failure is not None]
 
     await client.health_check()
 
