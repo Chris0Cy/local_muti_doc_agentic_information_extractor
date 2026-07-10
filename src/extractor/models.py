@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TierConfig(BaseModel):
@@ -13,6 +13,16 @@ class TierConfig(BaseModel):
     model_id: str
     context_window_tokens: int
     reserved_output_tokens: int = 512
+
+    @model_validator(mode="after")
+    def _check_positive_budget(self) -> TierConfig:
+        if self.reserved_output_tokens >= self.context_window_tokens:
+            raise ValueError(
+                f"Tier '{self.name}': reserved_output_tokens ({self.reserved_output_tokens}) "
+                f"must be less than context_window_tokens ({self.context_window_tokens}), "
+                "otherwise no budget is left for input text."
+            )
+        return self
 
 
 class LMStudioConfig(BaseModel):
@@ -29,6 +39,12 @@ class AppConfig(BaseModel):
     safety_margin: float = 0.85
     output_format: Literal["text", "markdown", "json"] = "markdown"
     save_path: str | None = None
+
+    @model_validator(mode="after")
+    def _check_at_least_one_tier(self) -> AppConfig:
+        if not self.tiers:
+            raise ValueError("AppConfig.tiers must contain at least one tier.")
+        return self
 
     @property
     def tiers_ascending(self) -> list[TierConfig]:

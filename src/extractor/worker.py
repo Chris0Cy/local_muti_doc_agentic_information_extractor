@@ -15,6 +15,24 @@ from extractor.prompts import WORKER_SYSTEM_PROMPT, worker_user_prompt
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
+_NEGATIVE_SIGNALS = (
+    "not relevant",
+    "no relevant",
+    "n't see any relevant",
+    "not applicable",
+    "does not contain",
+    "doesn't contain",
+    "no information",
+    "no mention",
+    "not mentioned",
+    "cannot find",
+    "can't find",
+    "could not find",
+    "not found",
+    "not related",
+    "irrelevant",
+)
+
 
 def _parse_worker_response(raw: str) -> tuple[bool, str | None, str | None]:
     """Tolerant parsing chain for small-model JSON output.
@@ -47,6 +65,14 @@ def _parse_worker_response(raw: str) -> tuple[bool, str | None, str | None]:
 
     stripped = raw.strip()
     if stripped:
+        # No valid JSON could be recovered at all. Rather than blindly treating
+        # any prose as a positive finding, check for an explicit negative
+        # signal first -- otherwise a plain-language refusal like "I don't see
+        # any relevant information" would get surfaced to the judge as a
+        # "relevant" excerpt.
+        lowered = stripped.lower()
+        if any(signal in lowered for signal in _NEGATIVE_SIGNALS):
+            return False, None, None
         return True, stripped, "low"
     return False, None, None
 

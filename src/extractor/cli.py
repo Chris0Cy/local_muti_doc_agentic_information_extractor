@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from extractor import __version__, pipeline, report
@@ -55,13 +56,17 @@ def inspect(
             doc = extract_text(path)
         except ExtractionError as e:
             failed.append((path, str(e)))
-            table.add_row(str(path.relative_to(folder)), "[red]FAILED[/red]", "-", str(e))
+            table.add_row(
+                escape(str(path.relative_to(folder))), "[red]FAILED[/red]", "-", escape(str(e))
+            )
             continue
 
         tokens = estimate_tokens(doc.text)
         tier = assign_tier(doc.text, tiers, config.safety_margin)
         tier_label = tier.name if tier else "[yellow]oversized -> will be chunked[/yellow]"
-        table.add_row(str(path.relative_to(folder)), doc.extraction_method, str(tokens), tier_label)
+        table.add_row(
+            escape(str(path.relative_to(folder))), doc.extraction_method, str(tokens), tier_label
+        )
 
     console.print(table)
     if failed:
@@ -85,11 +90,11 @@ def list_models(
     try:
         models = asyncio.run(_run())
     except LMStudioUnavailable as e:
-        console.print(f"[red]{e}[/red]")
+        console.print(f"[red]{escape(str(e))}[/red]")
         raise typer.Exit(code=1) from e
 
     for model_id in models:
-        console.print(model_id)
+        console.print(escape(model_id))
 
 
 @app.command(name="ask-one")
@@ -109,7 +114,7 @@ def ask_one(
     try:
         doc = extract_text(file)
     except ExtractionError as e:
-        console.print(f"[red]Extraction failed: {e}[/red]")
+        console.print(f"[red]Extraction failed: {escape(str(e))}[/red]")
         raise typer.Exit(code=1) from e
 
     tier = assign_tier(doc.text, tiers, config.safety_margin) or tiers[-1]
@@ -127,16 +132,17 @@ def ask_one(
     try:
         result = asyncio.run(_run())
     except LMStudioUnavailable as e:
-        console.print(f"[red]{e}[/red]")
+        console.print(f"[red]{escape(str(e))}[/red]")
         raise typer.Exit(code=1) from e
 
     if result.error:
-        console.print(f"[red]Worker error: {result.error}[/red]")
+        console.print(f"[red]Worker error: {escape(result.error)}[/red]")
         raise typer.Exit(code=1)
 
     if result.found_relevant_info:
         console.print(
-            f"[green]Relevant (confidence: {result.confidence}):[/green]\n{result.answer_excerpt}"
+            f"[green]Relevant (confidence: {result.confidence}):[/green]\n"
+            f"{escape(result.answer_excerpt or '')}"
         )
     else:
         console.print("[yellow]No relevant information found in this document.[/yellow]")
@@ -165,13 +171,13 @@ def ask(
     try:
         run_report = asyncio.run(_run())
     except LMStudioUnavailable as e:
-        console.print(f"[red]{e}[/red]")
+        console.print(f"[red]{escape(str(e))}[/red]")
         raise typer.Exit(code=1) from e
 
     if config.output_format == "json":
-        console.print(report.render_json(run_report))
+        console.print(report.render_json(run_report), markup=False)
     elif config.output_format == "markdown":
-        console.print(report.render_markdown(run_report))
+        console.print(report.render_markdown(run_report), markup=False)
     else:
         report.render_console(run_report, console)
 

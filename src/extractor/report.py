@@ -3,20 +3,28 @@
 from __future__ import annotations
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from extractor.models import RunReport
 
 
 def render_console(report: RunReport, console: Console) -> None:
-    console.print(f"\n[bold]Question:[/bold] {report.question}\n")
+    # Rich's Console.print() and Table.add_row() parse "[...]" as style markup
+    # by default. Any LLM-generated text, external error message, or the
+    # user's own question can contain something that looks like a markup tag
+    # (a numbered citation "[1]", a markdown link, a stray bracket) and would
+    # otherwise crash rendering *after* the (expensive) pipeline run has
+    # already completed. Everything that isn't a literal tag we wrote
+    # ourselves must be escaped.
+    console.print(f"\n[bold]Question:[/bold] {escape(report.question)}\n")
 
     if report.judge_result is None:
         console.print("[red]No judge result was produced.[/red]")
     elif report.judge_result.unanswered:
-        console.print(f"[yellow]{report.judge_result.final_answer_markdown}[/yellow]")
+        console.print(f"[yellow]{escape(report.judge_result.final_answer_markdown)}[/yellow]")
     else:
-        console.print(report.judge_result.final_answer_markdown)
+        console.print(escape(report.judge_result.final_answer_markdown))
 
     errored = [r for r in report.worker_results if r.error]
     if report.documents_failed or errored:
@@ -29,7 +37,7 @@ def render_console(report: RunReport, console: Console) -> None:
             table.add_column("File")
             table.add_column("Reason")
             for path, reason in report.documents_failed:
-                table.add_row(str(path), reason)
+                table.add_row(escape(str(path)), escape(reason))
             console.print(table)
         if errored:
             table = Table(title="Worker call errors")
@@ -38,7 +46,9 @@ def render_console(report: RunReport, console: Console) -> None:
             table.add_column("Error")
             for r in errored:
                 table.add_row(
-                    str(r.doc_path), f"{r.chunk_index + 1}/{r.total_chunks}", r.error or ""
+                    escape(str(r.doc_path)),
+                    f"{r.chunk_index + 1}/{r.total_chunks}",
+                    escape(r.error or ""),
                 )
             console.print(table)
     else:
